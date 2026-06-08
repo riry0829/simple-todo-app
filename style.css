@@ -19,7 +19,7 @@ body {
 .app {
   background: #fff;
   width: 100%;
-  max-width: 480px;
+  max-width: 720px;
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   padding: 28px;
@@ -66,8 +66,53 @@ h1 {
   background: #5a67d8;
 }
 
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.column {
+  background: #f7fafc;
+  border-radius: 12px;
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.column-title {
+  font-size: 0.95rem;
+  color: #4a5568;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: #667eea;
+  color: #fff;
+  font-size: 0.78rem;
+}
+
+.column:last-child .badge {
+  background: #48bb78;
+}
+
 .todo-list {
   list-style: none;
+}
+
+@media (max-width: 560px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
 }
 
 .todo-item {

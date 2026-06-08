@@ -3,8 +3,12 @@ const STORAGE_KEY = "simple-todo-app";
 
 const form = document.getElementById("todo-form");
 const input = document.getElementById("todo-input");
-const list = document.getElementById("todo-list");
-const emptyMsg = document.getElementById("empty-msg");
+const activeList = document.getElementById("active-list");
+const doneList = document.getElementById("done-list");
+const activeEmpty = document.getElementById("active-empty");
+const doneEmpty = document.getElementById("done-empty");
+const activeCount = document.getElementById("active-count");
+const doneCount = document.getElementById("done-count");
 const countEl = document.getElementById("count");
 const clearDoneBtn = document.getElementById("clear-done");
 
@@ -23,36 +27,46 @@ function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
 }
 
+function createItem(todo) {
+  const li = document.createElement("li");
+  li.className = "todo-item" + (todo.done ? " done" : "");
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = todo.done;
+  checkbox.addEventListener("change", () => toggle(todo.id));
+
+  const span = document.createElement("span");
+  span.className = "todo-text";
+  span.textContent = todo.text;
+
+  const delBtn = document.createElement("button");
+  delBtn.className = "delete-btn";
+  delBtn.textContent = "✕";
+  delBtn.setAttribute("aria-label", "削除");
+  delBtn.addEventListener("click", () => remove(todo.id));
+
+  li.append(checkbox, span, delBtn);
+  return li;
+}
+
 function render() {
-  list.innerHTML = "";
+  activeList.innerHTML = "";
+  doneList.innerHTML = "";
 
-  for (const todo of todos) {
-    const li = document.createElement("li");
-    li.className = "todo-item" + (todo.done ? " done" : "");
+  const active = todos.filter((t) => !t.done);
+  const done = todos.filter((t) => t.done);
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = todo.done;
-    checkbox.addEventListener("change", () => toggle(todo.id));
+  for (const todo of active) activeList.appendChild(createItem(todo));
+  for (const todo of done) doneList.appendChild(createItem(todo));
 
-    const span = document.createElement("span");
-    span.className = "todo-text";
-    span.textContent = todo.text;
+  activeEmpty.style.display = active.length === 0 ? "block" : "none";
+  doneEmpty.style.display = done.length === 0 ? "block" : "none";
+  activeCount.textContent = active.length;
+  doneCount.textContent = done.length;
 
-    const delBtn = document.createElement("button");
-    delBtn.className = "delete-btn";
-    delBtn.textContent = "✕";
-    delBtn.setAttribute("aria-label", "削除");
-    delBtn.addEventListener("click", () => remove(todo.id));
-
-    li.append(checkbox, span, delBtn);
-    list.appendChild(li);
-  }
-
-  const remaining = todos.filter((t) => !t.done).length;
-  emptyMsg.style.display = todos.length === 0 ? "block" : "none";
   countEl.textContent =
-    todos.length === 0 ? "" : `残り ${remaining} 件 / 全 ${todos.length} 件`;
+    todos.length === 0 ? "" : `残り ${active.length} 件 / 全 ${todos.length} 件`;
 }
 
 function addTodo(text) {

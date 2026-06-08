@@ -22,9 +22,19 @@
       <button type="submit" class="add-btn">追加</button>
     </form>
 
-    <ul id="todo-list" class="todo-list"></ul>
+    <div class="columns">
+      <section class="column">
+        <h2 class="column-title">未完了 <span id="active-count" class="badge"></span></h2>
+        <ul id="active-list" class="todo-list"></ul>
+        <p id="active-empty" class="empty-msg">タスクはありません 🎉</p>
+      </section>
 
-    <p id="empty-msg" class="empty-msg">タスクはありません 🎉</p>
+      <section class="column">
+        <h2 class="column-title">完了 <span id="done-count" class="badge"></span></h2>
+        <ul id="done-list" class="todo-list"></ul>
+        <p id="done-empty" class="empty-msg">まだありません</p>
+      </section>
+    </div>
 
     <footer class="footer">
       <span id="count"></span>
