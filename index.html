@@ -21,6 +21,13 @@
   <main class="app">
     <h1>📝 ToDo リスト</h1>
 
+    <div class="sync-bar">
+      <button id="sync-connect" class="sync-btn">🔗 Google Drive と同期</button>
+      <button id="sync-now" class="sync-btn hidden">🔄 今すぐ同期</button>
+      <button id="sync-disconnect" class="sync-btn ghost hidden">切断</button>
+      <span id="sync-status" class="sync-status"></span>
+    </div>
+
     <form id="todo-form" class="todo-form">
       <input
         type="text"
@@ -68,6 +75,9 @@
   </main>
 
   <script src="app.js"></script>
+  <script src="config.js"></script>
+  <script src="drive-sync.js"></script>
+  <script async defer src="https://accounts.google.com/gsi/client"></script>
   <script>
     // セキュアな環境（https または localhost）でのみ Service Worker を登録
     if ("serviceWorker" in navigator && window.isSecureContext) {

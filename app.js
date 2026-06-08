@@ -16,19 +16,52 @@ const doneCount = document.getElementById("done-count");
 const countEl = document.getElementById("count");
 const clearDoneBtn = document.getElementById("clear-done");
 
-/** @type {{id: number, text: string, done: boolean, due: string|null}[]} */
-let todos = load();
+/** @type {{id: string|number, text: string, done: boolean, due: string|null, updatedAt: number}[]} */
+let todos = [];
+/** 削除済みタスクの記録（同期で削除を反映するため）: { [id]: 削除時刻 } */
+let tombstones = {};
+loadState();
 
-function load() {
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function normalize(t) {
+  return {
+    id: t.id,
+    text: t.text,
+    done: !!t.done,
+    due: t.due || null,
+    updatedAt: t.updatedAt || t.id || Date.now(),
+  };
+}
+
+function loadState() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (Array.isArray(raw)) {
+      // 旧フォーマット（配列）からの移行
+      todos = raw.map(normalize);
+      tombstones = {};
+    } else if (raw && Array.isArray(raw.todos)) {
+      todos = raw.todos.map(normalize);
+      tombstones = raw.tombstones || {};
+    } else {
+      todos = [];
+      tombstones = {};
+    }
   } catch {
-    return [];
+    todos = [];
+    tombstones = {};
   }
 }
 
 function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ todos, tombstones }));
+}
+
+function scheduleSync() {
+  if (window.DriveSync) window.DriveSync.scheduleSync();
 }
 
 function createItem(todo) {
@@ -125,30 +158,38 @@ function render() {
 }
 
 function addTodo(text, due) {
-  todos.push({ id: Date.now(), text, done: false, due: due || null });
+  todos.push({ id: uid(), text, done: false, due: due || null, updatedAt: Date.now() });
   save();
   render();
+  scheduleSync();
 }
 
 function toggle(id) {
   const todo = todos.find((t) => t.id === id);
   if (todo) {
     todo.done = !todo.done;
+    todo.updatedAt = Date.now();
     save();
     render();
+    scheduleSync();
   }
 }
 
 function remove(id) {
   todos = todos.filter((t) => t.id !== id);
+  tombstones[id] = Date.now();
   save();
   render();
+  scheduleSync();
 }
 
 function clearDone() {
+  const now = Date.now();
+  for (const t of todos) if (t.done) tombstones[t.id] = now;
   todos = todos.filter((t) => !t.done);
   save();
   render();
+  scheduleSync();
 }
 
 form.addEventListener("submit", (e) => {
@@ -162,5 +203,19 @@ form.addEventListener("submit", (e) => {
 });
 
 clearDoneBtn.addEventListener("click", clearDone);
+
+// Drive 同期モジュール用のインターフェース
+window.TodoApp = {
+  getState: () => ({
+    todos: todos.map((t) => ({ ...t })),
+    tombstones: { ...tombstones },
+  }),
+  setState: (doc) => {
+    todos = (doc.todos || []).map(normalize);
+    tombstones = doc.tombstones || {};
+    save();
+    render();
+  },
+};
 
 render();

@@ -33,6 +33,49 @@ h1 {
   margin-bottom: 20px;
 }
 
+.sync-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.sync-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  background: #667eea;
+  color: #fff;
+  transition: background 0.2s;
+}
+
+.sync-btn:hover {
+  background: #5a67d8;
+}
+
+.sync-btn.ghost {
+  background: transparent;
+  color: #718096;
+  text-decoration: underline;
+}
+
+.sync-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sync-status {
+  font-size: 0.8rem;
+  color: #718096;
+}
+
+.hidden {
+  display: none !important;
+}
+
 .todo-form {
   display: flex;
   flex-wrap: wrap;

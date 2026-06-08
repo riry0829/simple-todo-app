@@ -1,10 +1,12 @@
 // オフラインで動かすための簡易キャッシュ（アプリシェル）
-const CACHE = "simple-todo-v1";
+const CACHE = "simple-todo-v2";
 const ASSETS = [
   ".",
   "index.html",
   "style.css",
   "app.js",
+  "config.js",
+  "drive-sync.js",
   "manifest.json",
   "icons/icon-192.png",
   "icons/icon-512.png",
@@ -32,6 +34,8 @@ self.addEventListener("activate", (event) => {
 // キャッシュ優先（オフライン対応）。なければネットワークから取得してキャッシュ。
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  // 同一オリジンのみキャッシュ対象。Google API / GIS 等の外部通信はそのまま素通し。
+  if (new URL(event.request.url).origin !== self.location.origin) return;
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
