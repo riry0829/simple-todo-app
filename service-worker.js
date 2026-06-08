@@ -1,5 +1,5 @@
 // オフラインで動かすための簡易キャッシュ（アプリシェル）
-const CACHE = "simple-todo-v3";
+const CACHE = "simple-todo-v4";
 const ASSETS = [
   ".",
   "index.html",
@@ -31,21 +31,19 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// キャッシュ優先（オフライン対応）。なければネットワークから取得してキャッシュ。
+// ネットワーク優先。オンライン時は常に最新を取得しつつキャッシュを更新し、
+// オフライン時のみキャッシュにフォールバックする（git pull した変更がすぐ反映される）。
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  // 同一オリジンのみキャッシュ対象。Google API / GIS 等の外部通信はそのまま素通し。
+  // 同一オリジンのみ対象。Google API / GIS 等の外部通信はそのまま素通し。
   if (new URL(event.request.url).origin !== self.location.origin) return;
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((cache) => cache.put(event.request, copy));
-          return res;
-        })
-        .catch(() => cached);
-    })
+    fetch(event.request)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+        return res;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
