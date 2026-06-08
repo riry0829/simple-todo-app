@@ -63,6 +63,14 @@ function createItem(todo) {
   return li;
 }
 
+// 期限ありを日付の昇順に、期限なしは末尾に並べる
+function byDue(a, b) {
+  if (a.due && b.due) return a.due < b.due ? -1 : a.due > b.due ? 1 : 0;
+  if (a.due) return -1;
+  if (b.due) return 1;
+  return 0;
+}
+
 function formatDue(due) {
   const d = new Date(due + "T00:00:00");
   return `${d.getMonth() + 1}/${d.getDate()}`;
@@ -78,8 +86,8 @@ function render() {
   activeList.innerHTML = "";
   doneList.innerHTML = "";
 
-  const active = todos.filter((t) => !t.done);
-  const done = todos.filter((t) => t.done);
+  const active = todos.filter((t) => !t.done).sort(byDue);
+  const done = todos.filter((t) => t.done).sort(byDue);
 
   for (const todo of active) activeList.appendChild(createItem(todo));
   for (const todo of done) doneList.appendChild(createItem(todo));
