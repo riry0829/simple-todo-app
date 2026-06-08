@@ -85,6 +85,27 @@ h1 {
   background: #5a67d8;
 }
 
+.today-section {
+  background: #fffaf0;
+  border: 2px solid #f6ad55;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.today-title {
+  font-size: 1rem;
+  color: #c05621;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.today-badge {
+  background: #ed8936;
+}
+
 .columns {
   display: grid;
   grid-template-columns: 1fr 1fr;

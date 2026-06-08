@@ -4,6 +4,9 @@ const STORAGE_KEY = "simple-todo-app";
 const form = document.getElementById("todo-form");
 const input = document.getElementById("todo-input");
 const dateInput = document.getElementById("todo-date");
+const todaySection = document.getElementById("today-section");
+const todayList = document.getElementById("today-list");
+const todayCount = document.getElementById("today-count");
 const activeList = document.getElementById("active-list");
 const doneList = document.getElementById("done-list");
 const activeEmpty = document.getElementById("active-empty");
@@ -76,6 +79,15 @@ function formatDue(due) {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
+function isToday(due) {
+  const t = new Date();
+  const ymd = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(t.getDate()).padStart(2, "0")}`;
+  return due === ymd;
+}
+
 function isOverdue(due) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -83,22 +95,33 @@ function isOverdue(due) {
 }
 
 function render() {
+  todayList.innerHTML = "";
   activeList.innerHTML = "";
   doneList.innerHTML = "";
 
-  const active = todos.filter((t) => !t.done).sort(byDue);
+  // 未完了のうち今日が期限のものは独立したセクションに表示する
+  const today = todos
+    .filter((t) => !t.done && t.due && isToday(t.due))
+    .sort(byDue);
+  const active = todos
+    .filter((t) => !t.done && !(t.due && isToday(t.due)))
+    .sort(byDue);
   const done = todos.filter((t) => t.done).sort(byDue);
 
+  for (const todo of today) todayList.appendChild(createItem(todo));
   for (const todo of active) activeList.appendChild(createItem(todo));
   for (const todo of done) doneList.appendChild(createItem(todo));
 
+  todaySection.style.display = today.length === 0 ? "none" : "block";
+  todayCount.textContent = today.length;
   activeEmpty.style.display = active.length === 0 ? "block" : "none";
   doneEmpty.style.display = done.length === 0 ? "block" : "none";
   activeCount.textContent = active.length;
   doneCount.textContent = done.length;
 
+  const remaining = today.length + active.length;
   countEl.textContent =
-    todos.length === 0 ? "" : `残り ${active.length} 件 / 全 ${todos.length} 件`;
+    todos.length === 0 ? "" : `残り ${remaining} 件 / 全 ${todos.length} 件`;
 }
 
 function addTodo(text, due) {
