@@ -7,4 +7,4 @@
 //   window.GOOGLE_CLIENT_ID = "1234567890-abcdefg.apps.googleusercontent.com";
 //
 // 空のままだと同期機能は無効になり、ローカル保存のみで動作します。
-window.GOOGLE_CLIENT_ID = "";
+window.GOOGLE_CLIENT_ID = "756285152087-c22pt7s1nnpvep30nsgs4tr9k1oq39o4.apps.googleusercontent.com";

@@ -12,6 +12,18 @@
   let connected = false;
   let syncTimer = null;
   let busy = false;
+  // 進行中のトークン取得の resolve/reject（成功・失敗どちらでも必ず解決させる）
+  let authResolve = null;
+  let authReject = null;
+
+  function settleAuth(ok, value) {
+    const resolve = authResolve;
+    const reject = authReject;
+    authResolve = null;
+    authReject = null;
+    if (ok && resolve) resolve(value);
+    if (!ok && reject) reject(value);
+  }
 
   const els = {};
 
@@ -67,7 +79,19 @@
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: window.GOOGLE_CLIENT_ID,
       scope: SCOPE,
-      callback: () => {},
+      callback: (resp) => {
+        if (resp && resp.error) {
+          settleAuth(false, resp);
+          return;
+        }
+        accessToken = resp.access_token;
+        tokenExpiry = Date.now() + (resp.expires_in || 3600) * 1000;
+        settleAuth(true, accessToken);
+      },
+      // ポップアップが閉じられた/ブロックされた等はこちらに来る
+      error_callback: (err) => {
+        settleAuth(false, err || { type: "popup_error" });
+      },
     });
 
     updateButtons();
@@ -83,17 +107,26 @@
         return resolve(accessToken);
       }
       if (!tokenClient) return reject(new Error("no-client"));
-      tokenClient.callback = (resp) => {
-        if (resp && resp.error) return reject(resp);
-        accessToken = resp.access_token;
-        tokenExpiry = Date.now() + (resp.expires_in || 3600) * 1000;
-        resolve(accessToken);
+
+      // 万一どのコールバックも呼ばれなくても固まらないよう保険のタイムアウト
+      const watchdog = setTimeout(() => {
+        settleAuth(false, { type: "timeout" });
+      }, 90000);
+
+      authResolve = (token) => {
+        clearTimeout(watchdog);
+        resolve(token);
       };
+      authReject = (err) => {
+        clearTimeout(watchdog);
+        reject(err);
+      };
+
       try {
         // interactive: 必要なら同意画面 / silent: 'none' で無音取得
         tokenClient.requestAccessToken({ prompt: interactive ? "" : "none" });
       } catch (e) {
-        reject(e);
+        settleAuth(false, e);
       }
     });
   }
@@ -103,7 +136,16 @@
       ...opts,
       headers: { Authorization: "Bearer " + token, ...(opts && opts.headers) },
     });
-    if (!res.ok) throw new Error("drive " + res.status);
+    if (!res.ok) {
+      let msg = "";
+      try {
+        const body = await res.json();
+        msg = (body.error && (body.error.message || body.error.status)) || "";
+      } catch {
+        /* noop */
+      }
+      throw new Error("Drive " + res.status + (msg ? " " + msg : ""));
+    }
     return res;
   }
 
@@ -190,6 +232,7 @@
     if (busy) return;
     busy = true;
     try {
+      setStatus(interactive ? "ログイン中…" : "同期中…");
       const token = await getToken(interactive);
       setStatus("同期中…");
       const fileId = await findFile(token);
@@ -210,9 +253,11 @@
       updateButtons();
       setStatus("✅ 同期済み " + nowLabel());
     } catch (e) {
+      console.warn("sync error", e);
+      const detail =
+        (e && (e.message || e.error || e.type || e.error_description)) || "不明";
       if (interactive) {
-        setStatus("⚠️ 同期に失敗しました");
-        console.warn("sync error", e);
+        setStatus("⚠️ 失敗: " + detail);
       } else {
         setStatus("未接続（同期するにはタップ）");
       }
