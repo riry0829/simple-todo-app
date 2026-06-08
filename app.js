@@ -3,6 +3,7 @@ const STORAGE_KEY = "simple-todo-app";
 
 const form = document.getElementById("todo-form");
 const input = document.getElementById("todo-input");
+const dateInput = document.getElementById("todo-date");
 const activeList = document.getElementById("active-list");
 const doneList = document.getElementById("done-list");
 const activeEmpty = document.getElementById("active-empty");
@@ -12,7 +13,7 @@ const doneCount = document.getElementById("done-count");
 const countEl = document.getElementById("count");
 const clearDoneBtn = document.getElementById("clear-done");
 
-/** @type {{id: number, text: string, done: boolean}[]} */
+/** @type {{id: number, text: string, done: boolean, due: string|null}[]} */
 let todos = load();
 
 function load() {
@@ -36,9 +37,21 @@ function createItem(todo) {
   checkbox.checked = todo.done;
   checkbox.addEventListener("change", () => toggle(todo.id));
 
+  const body = document.createElement("div");
+  body.className = "todo-body";
+
   const span = document.createElement("span");
   span.className = "todo-text";
   span.textContent = todo.text;
+  body.appendChild(span);
+
+  if (todo.due) {
+    const due = document.createElement("span");
+    due.className = "todo-due";
+    due.textContent = "📅 " + formatDue(todo.due);
+    if (!todo.done && isOverdue(todo.due)) due.classList.add("overdue");
+    body.appendChild(due);
+  }
 
   const delBtn = document.createElement("button");
   delBtn.className = "delete-btn";
@@ -46,8 +59,19 @@ function createItem(todo) {
   delBtn.setAttribute("aria-label", "削除");
   delBtn.addEventListener("click", () => remove(todo.id));
 
-  li.append(checkbox, span, delBtn);
+  li.append(checkbox, body, delBtn);
   return li;
+}
+
+function formatDue(due) {
+  const d = new Date(due + "T00:00:00");
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function isOverdue(due) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return new Date(due + "T00:00:00") < today;
 }
 
 function render() {
@@ -69,8 +93,8 @@ function render() {
     todos.length === 0 ? "" : `残り ${active.length} 件 / 全 ${todos.length} 件`;
 }
 
-function addTodo(text) {
-  todos.push({ id: Date.now(), text, done: false });
+function addTodo(text, due) {
+  todos.push({ id: Date.now(), text, done: false, due: due || null });
   save();
   render();
 }
@@ -100,8 +124,9 @@ form.addEventListener("submit", (e) => {
   e.preventDefault();
   const text = input.value.trim();
   if (!text) return;
-  addTodo(text);
+  addTodo(text, dateInput.value);
   input.value = "";
+  dateInput.value = "";
   input.focus();
 });
 

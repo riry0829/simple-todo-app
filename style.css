@@ -33,8 +33,13 @@ h1 {
 
 .todo-form {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 20px;
+}
+
+.todo-input {
+  min-width: 160px;
 }
 
 .todo-input {
@@ -48,6 +53,20 @@ h1 {
 }
 
 .todo-input:focus {
+  border-color: #667eea;
+}
+
+.todo-date {
+  padding: 12px 10px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  outline: none;
+  color: #4a5568;
+  transition: border-color 0.2s;
+}
+
+.todo-date:focus {
   border-color: #667eea;
 }
 
@@ -134,13 +153,34 @@ h1 {
   flex-shrink: 0;
 }
 
-.todo-text {
+.todo-body {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.todo-text {
   word-break: break-word;
+}
+
+.todo-due {
+  font-size: 0.78rem;
+  color: #718096;
+}
+
+.todo-due.overdue {
+  color: #e53e3e;
+  font-weight: 600;
 }
 
 .todo-item.done .todo-text {
   text-decoration: line-through;
+  color: #a0aec0;
+}
+
+.todo-item.done .todo-due {
   color: #a0aec0;
 }
 
