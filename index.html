@@ -2,8 +2,19 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>シンプル ToDo リスト</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#667eea" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="ToDo" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" href="icons/icon-192.png" />
+
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -57,5 +68,15 @@
   </main>
 
   <script src="app.js"></script>
+  <script>
+    // セキュアな環境（https または localhost）でのみ Service Worker を登録
+    if ("serviceWorker" in navigator && window.isSecureContext) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("service-worker.js")
+          .catch((err) => console.warn("SW 登録に失敗:", err));
+      });
+    }
+  </script>
 </body>
 </html>

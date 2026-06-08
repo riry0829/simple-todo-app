@@ -12,8 +12,10 @@ body {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 40px 16px;
+  padding: max(40px, env(safe-area-inset-top)) 16px
+    max(40px, env(safe-area-inset-bottom));
   color: #2d3748;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .app {
@@ -39,15 +41,12 @@ h1 {
 }
 
 .todo-input {
-  min-width: 160px;
-}
-
-.todo-input {
   flex: 1;
+  min-width: 160px;
   padding: 12px 14px;
   border: 2px solid #e2e8f0;
   border-radius: 10px;
-  font-size: 1rem;
+  font-size: 16px; /* スマホで入力時に自動ズームしないように */
   outline: none;
   transition: border-color 0.2s;
 }
@@ -60,7 +59,7 @@ h1 {
   padding: 12px 10px;
   border: 2px solid #e2e8f0;
   border-radius: 10px;
-  font-size: 0.95rem;
+  font-size: 16px;
   outline: none;
   color: #4a5568;
   transition: border-color 0.2s;
@@ -211,8 +210,10 @@ h1 {
   color: #e53e3e;
   font-size: 1.2rem;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 8px;
+  flex-shrink: 0;
   transition: background 0.2s;
 }
 
