@@ -1,5 +1,5 @@
 // オフラインで動かすための簡易キャッシュ（アプリシェル）
-const CACHE = "simple-todo-v4";
+const CACHE = "simple-todo-v5";
 const ASSETS = [
   ".",
   "index.html",

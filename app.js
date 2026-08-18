@@ -27,12 +27,15 @@ function uid() {
 }
 
 function normalize(t) {
+  // updatedAt は同期のマージで新旧を比較する値なので、必ず数値にしておく。
+  // （id は文字列なので、代わりに入れると比較が壊れる）
+  const updatedAt = Number(t.updatedAt);
   return {
-    id: t.id,
+    id: t.id || uid(),
     text: t.text,
     done: !!t.done,
     due: t.due || null,
-    updatedAt: t.updatedAt || t.id || Date.now(),
+    updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0,
   };
 }
 
@@ -40,9 +43,11 @@ function loadState() {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (Array.isArray(raw)) {
-      // 旧フォーマット（配列）からの移行
-      todos = raw.map(normalize);
+      // 旧フォーマット（配列）からの移行。updatedAt を持たないので現在時刻を打つ
+      const now = Date.now();
+      todos = raw.map((t) => normalize({ ...t, updatedAt: t.updatedAt || now }));
       tombstones = {};
+      save();
     } else if (raw && Array.isArray(raw.todos)) {
       todos = raw.todos.map(normalize);
       tombstones = raw.tombstones || {};

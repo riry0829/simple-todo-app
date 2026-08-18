@@ -4,14 +4,25 @@
 (function () {
   const SCOPE = "https://www.googleapis.com/auth/drive.appdata";
   const FILE_NAME = "todos.json";
-  const AUTO_KEY = "simple-todo-drive-auto";
+  const AUTO_KEY = "simple-todo-drive-auto"; // この端末で同期を有効にしたか
+  const PENDING_KEY = "simple-todo-drive-pending"; // 未送信のローカル変更があるか
+
+  const POLL_MS = 60 * 1000; // 定期的に相手端末の変更を取りに行く間隔
+  const MIN_INTERVAL_MS = 5000; // 連続同期の最短間隔（イベントの重複発火よけ）
+  const SILENT_RETRY_MS = 5 * 60 * 1000; // 無音ログイン失敗後、再試行するまで
+  const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 削除記録の保持期間
 
   let tokenClient = null;
   let accessToken = null;
   let tokenExpiry = 0;
-  let connected = false;
-  let syncTimer = null;
+  let enabled = localStorage.getItem(AUTO_KEY) === "1"; // 同期を使う設定
+  let needsLogin = false; // 無音でトークンが取れず、手動ログインが要る状態
+  let lastSilentFail = 0;
+  let lastSyncAt = 0;
   let busy = false;
+  let rerun = false; // 同期中に来た変更を取りこぼさないためのフラグ
+  let debounceTimer = null;
+  let pollTimer = null;
   // 進行中のトークン取得の resolve/reject（成功・失敗どちらでも必ず解決させる）
   let authResolve = null;
   let authReject = null;
@@ -27,15 +38,29 @@
 
   const els = {};
 
+  function isPending() {
+    return localStorage.getItem(PENDING_KEY) === "1";
+  }
+
+  function setPending(v) {
+    if (v) localStorage.setItem(PENDING_KEY, "1");
+    else localStorage.removeItem(PENDING_KEY);
+  }
+
   function setStatus(text) {
     if (els.status) els.status.textContent = text;
   }
 
   function updateButtons() {
     if (!els.connect) return;
-    els.connect.classList.toggle("hidden", connected);
-    els.now.classList.toggle("hidden", !connected);
-    els.disconnect.classList.toggle("hidden", !connected);
+    // 未設定の端末と、再ログインが必要な端末では接続ボタンを出す
+    const showConnect = !enabled || needsLogin;
+    els.connect.textContent = needsLogin
+      ? "🔑 再ログイン"
+      : "🔗 Google Drive と同期";
+    els.connect.classList.toggle("hidden", !showConnect);
+    els.now.classList.toggle("hidden", !enabled);
+    els.disconnect.classList.toggle("hidden", !enabled);
   }
 
   function waitForGoogle() {
@@ -69,6 +94,9 @@
       return;
     }
 
+    updateButtons();
+    setStatus(enabled ? "同期の準備中…" : "未接続");
+
     try {
       await waitForGoogle();
     } catch {
@@ -94,11 +122,28 @@
       },
     });
 
-    updateButtons();
-    setStatus("未接続");
+    registerTriggers();
 
     // 以前接続していた端末なら、起動時に自動で同期を試みる
-    if (localStorage.getItem(AUTO_KEY) === "1") sync(false);
+    if (enabled) sync(false);
+  }
+
+  // 相手端末の変更を取りに行くきっかけ。
+  // 「自分が編集したとき」だけだと片方向にしか流れないので、
+  // 画面に戻ったとき・オンライン復帰時・一定時間ごとにも引きに行く。
+  function registerTriggers() {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") sync(false);
+    });
+    window.addEventListener("focus", () => sync(false));
+    window.addEventListener("online", () => sync(false));
+    window.addEventListener("pageshow", () => sync(false));
+
+    clearInterval(pollTimer);
+    pollTimer = setInterval(() => {
+      // 非表示のタブ／バックグラウンドのアプリでは通信しない
+      if (document.visibilityState === "visible") sync(false);
+    }, POLL_MS);
   }
 
   function getToken(interactive) {
@@ -109,9 +154,10 @@
       if (!tokenClient) return reject(new Error("no-client"));
 
       // 万一どのコールバックも呼ばれなくても固まらないよう保険のタイムアウト
-      const watchdog = setTimeout(() => {
-        settleAuth(false, { type: "timeout" });
-      }, 90000);
+      const watchdog = setTimeout(
+        () => settleAuth(false, { type: "timeout" }),
+        interactive ? 90000 : 15000
+      );
 
       authResolve = (token) => {
         clearTimeout(watchdog);
@@ -144,19 +190,23 @@
       } catch {
         /* noop */
       }
-      throw new Error("Drive " + res.status + (msg ? " " + msg : ""));
+      const err = new Error("Drive " + res.status + (msg ? " " + msg : ""));
+      err.status = res.status;
+      throw err;
     }
     return res;
   }
 
-  async function findFile(token) {
+  // 同名ファイルは複数存在しうる（両端末が同時に初回接続した場合など）。
+  // すべて拾って作成順に並べ、いちばん古いものを正とする。
+  async function findFiles(token) {
     const url =
       "https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=" +
       encodeURIComponent("name='" + FILE_NAME + "' and trashed=false") +
-      "&fields=files(id)";
+      "&orderBy=createdTime&fields=files(id,createdTime)";
     const res = await api(url, {}, token);
     const data = await res.json();
-    return data.files && data.files[0] ? data.files[0].id : null;
+    return (data.files || []).map((f) => f.id);
   }
 
   async function download(token, id) {
@@ -166,6 +216,14 @@
       token
     );
     return res.json();
+  }
+
+  async function deleteFile(token, id) {
+    await api(
+      "https://www.googleapis.com/drive/v3/files/" + id,
+      { method: "DELETE" },
+      token
+    );
   }
 
   async function upload(token, id, content) {
@@ -201,6 +259,16 @@
     return data.id;
   }
 
+  // 古すぎる削除記録は捨てる（際限なく溜まるのを防ぐ）
+  function pruneTombstones(tombstones) {
+    const cutoff = Date.now() - TOMBSTONE_TTL_MS;
+    const out = {};
+    for (const [id, t] of Object.entries(tombstones)) {
+      if (t > cutoff) out[id] = t;
+    }
+    return out;
+  }
+
   // ローカルとリモートを id 単位でマージ（更新が新しい方を採用、削除も反映）
   function mergeDocs(a, b) {
     const tombstones = { ...(a.tombstones || {}) };
@@ -209,6 +277,7 @@
     }
     const byId = new Map();
     for (const t of [...(a.todos || []), ...(b.todos || [])]) {
+      if (!t || !t.id) continue;
       const ex = byId.get(t.id);
       if (!ex || (t.updatedAt || 0) > (ex.updatedAt || 0)) byId.set(t.id, t);
     }
@@ -218,7 +287,7 @@
       if (del && del >= (t.updatedAt || 0)) continue; // 更新後に削除されたものは除外
       todos.push(t);
     }
-    return { todos, tombstones };
+    return { todos, tombstones: pruneTombstones(tombstones) };
   }
 
   function nowLabel() {
@@ -229,47 +298,106 @@
   }
 
   async function sync(interactive) {
-    if (busy) return;
+    if (busy) {
+      rerun = true;
+      return;
+    }
+    if (!interactive) {
+      if (!enabled || !tokenClient) return;
+      if (!navigator.onLine) {
+        setStatus("📴 オフライン（未送信の変更は保持）");
+        return;
+      }
+      // 無音ログインに失敗した直後は連打しない（ユーザーのタップを待つ）
+      if (needsLogin && Date.now() - lastSilentFail < SILENT_RETRY_MS) return;
+      // 未送信の変更がなければ、短時間の重複発火は無視する
+      if (Date.now() - lastSyncAt < MIN_INTERVAL_MS && !isPending()) return;
+    }
+
     busy = true;
     try {
-      setStatus(interactive ? "ログイン中…" : "同期中…");
-      const token = await getToken(interactive);
+      let token;
+      try {
+        setStatus(interactive ? "ログイン中…" : "同期中…");
+        token = await getToken(interactive);
+        needsLogin = false;
+      } catch (e) {
+        // 認可が取れない ＝ 通信の失敗ではなくログインの問題として扱う
+        console.warn("auth error", e);
+        needsLogin = true;
+        lastSilentFail = Date.now();
+        setStatus(
+          interactive
+            ? "⚠️ ログインできませんでした"
+            : "🔑 再ログインが必要です（タップ）"
+        );
+        return;
+      }
+
       setStatus("同期中…");
-      const fileId = await findFile(token);
+      const ids = await findFiles(token);
+
       let remote = { todos: [], tombstones: {} };
-      if (fileId) {
+      for (const id of ids) {
         try {
-          remote = await download(token, fileId);
-        } catch {
-          /* 空ファイル等は無視 */
+          remote = mergeDocs(remote, await download(token, id));
+        } catch (e) {
+          console.warn("skip file", id, e); // 空・壊れたファイルは無視
         }
       }
-      const local = window.TodoApp.getState();
-      const merged = mergeDocs(local, remote);
+
+      const merged = mergeDocs(window.TodoApp.getState(), remote);
       window.TodoApp.setState(merged);
-      await upload(token, fileId, merged);
-      connected = true;
+
+      const primary = ids[0] || null;
+      await upload(token, primary, merged);
+      // 重複してできたファイルは正のファイルに統合したうえで削除する
+      for (const id of ids.slice(1)) {
+        try {
+          await deleteFile(token, id);
+        } catch (e) {
+          console.warn("duplicate cleanup failed", id, e);
+        }
+      }
+
+      enabled = true;
       localStorage.setItem(AUTO_KEY, "1");
-      updateButtons();
+      setPending(false);
       setStatus("✅ 同期済み " + nowLabel());
     } catch (e) {
       console.warn("sync error", e);
-      const detail =
-        (e && (e.message || e.error || e.type || e.error_description)) || "不明";
-      if (interactive) {
-        setStatus("⚠️ 失敗: " + detail);
+      if (e && (e.status === 401 || e.status === 403)) {
+        // トークンが失効している。次回は取り直す
+        accessToken = null;
+        tokenExpiry = 0;
+        needsLogin = true;
+        lastSilentFail = Date.now();
+        setStatus("🔑 再ログインが必要です（タップ）");
       } else {
-        setStatus("未接続（同期するにはタップ）");
+        const detail =
+          (e && (e.message || e.error || e.type || e.error_description)) || "不明";
+        setStatus("⚠️ 同期に失敗: " + detail + "（変更は保持）");
       }
     } finally {
       busy = false;
+      // 成功・失敗にかかわらず記録し、イベントの重複発火で連打するのを防ぐ
+      lastSyncAt = Date.now();
+      updateButtons();
+      if (rerun) {
+        rerun = false;
+        setTimeout(() => sync(false), 300);
+      }
     }
   }
 
   function scheduleSync() {
-    if (!connected) return;
-    clearTimeout(syncTimer);
-    syncTimer = setTimeout(() => sync(false), 1500);
+    // 送信できたかに関わらず「未送信の変更あり」を必ず記録しておく。
+    // これでログイン切れ・オフラインをまたいでも取りこぼさない。
+    setPending(true);
+    if (!enabled) return;
+    if (!busy) setStatus("⏳ 未送信の変更あり");
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => sync(false), 1200);
   }
 
   function disconnect() {
@@ -282,7 +410,8 @@
     }
     accessToken = null;
     tokenExpiry = 0;
-    connected = false;
+    enabled = false;
+    needsLogin = false;
     localStorage.removeItem(AUTO_KEY);
     updateButtons();
     setStatus("切断しました");
