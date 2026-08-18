@@ -269,25 +269,39 @@
     return out;
   }
 
-  // ローカルとリモートを id 単位でマージ（更新が新しい方を採用、削除も反映）
+  // 2つのリストを id 単位でマージ（更新が新しい方を採用、削除も反映）
+  function mergeList(listA, listB, tombstones) {
+    const byId = new Map();
+    for (const t of [...(listA || []), ...(listB || [])]) {
+      if (!t || !t.id) continue;
+      const ex = byId.get(t.id);
+      if (!ex || (t.updatedAt || 0) > (ex.updatedAt || 0)) byId.set(t.id, t);
+    }
+    const out = [];
+    for (const t of byId.values()) {
+      const del = tombstones[t.id];
+      if (del && del >= (t.updatedAt || 0)) continue; // 更新後に削除されたものは除外
+      out.push(t);
+    }
+    return out;
+  }
+
+  // ローカルとリモートをマージする。タスクとフォルダは同じ tombstones を共有する
   function mergeDocs(a, b) {
     const tombstones = { ...(a.tombstones || {}) };
     for (const [id, t] of Object.entries(b.tombstones || {})) {
       if (!tombstones[id] || t > tombstones[id]) tombstones[id] = t;
     }
-    const byId = new Map();
-    for (const t of [...(a.todos || []), ...(b.todos || [])]) {
-      if (!t || !t.id) continue;
-      const ex = byId.get(t.id);
-      if (!ex || (t.updatedAt || 0) > (ex.updatedAt || 0)) byId.set(t.id, t);
+    const todos = mergeList(a.todos, b.todos, tombstones);
+    const folders = mergeList(a.folders, b.folders, tombstones);
+
+    // 消えたフォルダを指すタスクは、フォルダなしに戻して救済する
+    const ids = new Set(folders.map((f) => f.id));
+    for (const t of todos) {
+      if (t.folderId && !ids.has(t.folderId)) t.folderId = null;
     }
-    const todos = [];
-    for (const t of byId.values()) {
-      const del = tombstones[t.id];
-      if (del && del >= (t.updatedAt || 0)) continue; // 更新後に削除されたものは除外
-      todos.push(t);
-    }
-    return { todos, tombstones: pruneTombstones(tombstones) };
+
+    return { todos, folders, tombstones: pruneTombstones(tombstones) };
   }
 
   function nowLabel() {
@@ -337,7 +351,7 @@
       setStatus("同期中…");
       const ids = await findFiles(token);
 
-      let remote = { todos: [], tombstones: {} };
+      let remote = { todos: [], folders: [], tombstones: {} };
       for (const id of ids) {
         try {
           remote = mergeDocs(remote, await download(token, id));

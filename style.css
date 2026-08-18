@@ -291,3 +291,208 @@ h1 {
 .clear-btn:hover {
   color: #e53e3e;
 }
+
+/* ---- フォルダ ---- */
+
+.folder-add {
+  margin-bottom: 20px;
+}
+
+.folder-new-btn {
+  border: 2px dashed #cbd5e0;
+  background: transparent;
+  color: #667eea;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  width: 100%;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.folder-new-btn:hover {
+  border-color: #667eea;
+  background: #f7f8ff;
+}
+
+.folder-panel {
+  border: 2px solid #667eea;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.folder-panel-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.folder-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.folder-name-input {
+  flex: 1;
+  min-width: 160px;
+  padding: 12px 14px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.folder-due-input {
+  padding: 12px 10px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 16px;
+  color: #4a5568;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.folder-items-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 16px;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.folder-name-input:focus,
+.folder-due-input:focus,
+.folder-items-input:focus {
+  border-color: #667eea;
+}
+
+.folder-panel-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ghost-btn {
+  padding: 12px 18px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #718096;
+  font-size: 1rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.ghost-btn:hover {
+  color: #2d3748;
+}
+
+.folder-list {
+  list-style: none;
+}
+
+.folder {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.folder-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 8px;
+  background: #edf2f7;
+}
+
+.folder-open-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 8px 4px;
+  border-radius: 8px;
+}
+
+.folder-open-area:hover {
+  background: #e2e8f0;
+}
+
+.folder-toggle {
+  color: #718096;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.folder-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  word-break: break-word;
+}
+
+.folder-progress {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 11px;
+  background: #a0aec0;
+  color: #fff;
+  font-size: 0.75rem;
+}
+
+.folder-progress.complete {
+  background: #48bb78;
+}
+
+.folder-add-btn {
+  border: none;
+  background: transparent;
+  color: #667eea;
+  font-size: 1.1rem;
+  cursor: pointer;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.folder-add-btn:hover {
+  background: #e2e8f0;
+}
+
+.folder-items {
+  padding: 0 12px;
+}
+
+.folder-empty {
+  padding: 14px 0;
+  font-size: 0.85rem;
+}
+
+.folder.collapsed .folder-items,
+.folder.collapsed .folder-empty {
+  display: none;
+}
